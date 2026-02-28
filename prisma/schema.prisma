@@ -1,0 +1,419 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== CRM ==============
+model Person {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  location     String?
+  socialHandles Json?
+  tags         String[]
+  trustScore   Int?
+  riskFlags    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  crmEntityId  String?  @unique
+  crmEntity    CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  type      String?
+  location  String?
+  website   String?
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  crmEntityId String? @unique
+  crmEntity CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  type        String
+  timestamp   DateTime
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  crmEntityId String?  @unique
+  crmEntity   CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  type      String?
+  url       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  crmEntityId String? @unique
+  crmEntity CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model Case {
+  id        String   @id @default(uuid())
+  title     String
+  type      String?
+  status    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  crmEntityId String? @unique
+  crmEntity CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model Shipment {
+  id             String   @id @default(uuid())
+  trackingNumber String?
+  status         String?
+  origin         String?
+  destination    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  crmEntityId    String?  @unique
+  crmEntity      CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model PartnerVerification {
+  id        String   @id @default(uuid())
+  status    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  crmEntityId String? @unique
+  crmEntity CRMEntity? @relation(fields: [crmEntityId], references: [id])
+}
+
+model CRMEntity {
+  id               String   @id @default(uuid())
+  type             String
+  refId            String
+  person           Person?           @relation
+  organization     Organization?     @relation
+  activity         Activity?         @relation
+  document         Document?         @relation
+  case             Case?             @relation
+  shipment         Shipment?         @relation
+  partnerVerification PartnerVerification? @relation
+  relationshipsFrom Relationship[] @relation("FromEntity")
+  relationshipsTo   Relationship[] @relation("ToEntity")
+  vaultLinks       VaultLink[]
+}
+
+model Relationship {
+  id        String   @id @default(uuid())
+  fromId    String
+  toId      String
+  type      String
+  createdAt DateTime @default(now())
+  from      CRMEntity @relation("FromEntity", fields: [fromId], references: [id])
+  to        CRMEntity @relation("ToEntity", fields: [toId], references: [id])
+}
+
+model VaultLink {
+  id         String   @id @default(uuid())
+  crmEntityId String
+  vaultId    String
+  vaultName  String?
+  role       String?
+  createdAt  DateTime @default(now())
+  crmEntity  CRMEntity @relation(fields: [crmEntityId], references: [id])
+}
+
+// ============== Jurisdictions & Legal ==============
+model Jurisdiction {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  parentId    String?
+  parent      Jurisdiction?  @relation("JurisdictionHierarchy", fields: [parentId], references: [id])
+  children   Jurisdiction[]  @relation("JurisdictionHierarchy")
+  legalDocuments LegalDocument[]
+  legalGraphNodes LegalGraphNode[]
+  legalObligations LegalObligation[]
+  templateOverlays TemplateOverlay[]
+  jurisdictionConfirmations JurisdictionConfirmation[]
+}
+
+model LegalDocument {
+  id                String   @id @default(uuid())
+  externalId        String?
+  title             String
+  documentType      String
+  jurisdictionId   String?
+  jurisdiction      Jurisdiction? @relation(fields: [jurisdictionId], references: [id])
+  module            String
+  rawContent        String?
+  normalizedContent String?
+  legalLevel        String?
+  authority         String?
+  dateAdopted       DateTime?
+  dateEffective     DateTime?
+  originalLanguage  String?
+  sourceUrl         String?
+  version           Int      @default(1)
+  metadata          Json?
+  previousVersionId String?
+  previousVersion   LegalDocument?  @relation("DocumentVersions", fields: [previousVersionId], references: [id])
+  nextVersions      LegalDocument[]  @relation("DocumentVersions")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  graphNode         LegalGraphNode?
+  versions          LegalDocumentVersion[]
+  obligations       LegalObligation[]
+  documentTranslations DocumentTranslation[]
+}
+
+model LegalDocumentVersion {
+  id            String   @id @default(uuid())
+  documentId    String
+  document      LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version       Int
+  contentDelta  String?
+  changeSummary String?
+  createdAt     DateTime @default(now())
+}
+
+model DocumentTranslation {
+  id                String   @id @default(uuid())
+  documentId        String
+  document          LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sourceLanguage    String
+  targetLanguage    String
+  originalText      String?
+  translatedText    String?
+  confidence        Float?
+  sentenceAlignments Json?
+  createdAt         DateTime @default(now())
+}
+
+model LegalGraphNode {
+  id              String   @id @default(uuid())
+  documentId      String?  @unique
+  document        LegalDocument? @relation(fields: [documentId], references: [id])
+  jurisdictionId  String?
+  jurisdiction    Jurisdiction? @relation(fields: [jurisdictionId], references: [id])
+  label           String?
+  nodeType        String
+  edgesFrom       GraphEdge[] @relation("EdgeFrom")
+  edgesTo         GraphEdge[] @relation("EdgeTo")
+  legalGraphEdgeFrom LegalGraphEdge[] @relation("NodeFrom")
+  legalGraphEdgeTo   LegalGraphEdge[] @relation("NodeTo")
+  templateLinks   LegalTemplateLink[]
+}
+
+model LegalGraphEdge {
+  id             String   @id @default(uuid())
+  fromId         String
+  toId           String
+  fromNode       LegalGraphNode @relation("NodeFrom", fields: [fromId], references: [id])
+  toNode         LegalGraphNode @relation("NodeTo", fields: [toId], references: [id])
+  edgeType       String
+  version        Int      @default(1)
+  updatedAt      DateTime @updatedAt
+}
+
+model GraphEdge {
+  id        String   @id @default(uuid())
+  fromType  String
+  fromId    String
+  toType    String
+  toId      String
+  edgeType  String
+  metadata  Json?
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LegalObligation {
+  id             String   @id @default(uuid())
+  documentId     String
+  document       LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  text           String
+  scope          String?
+  jurisdictionId String?
+  jurisdiction   Jurisdiction? @relation(fields: [jurisdictionId], references: [id])
+  legalBasis     String?
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+}
+
+model LegalTemplate {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  jurisdictionId  String?
+  source          String?
+  templateType    String?
+  version         Int      @default(1)
+  scenarioTags    String[]
+  isActive        Boolean  @default(true)
+  sections        LegalTemplateSection[]
+  links           LegalTemplateLink[]
+  templateVersions LegalTemplateVersion[]
+}
+
+model LegalTemplateSection {
+  id                   String   @id @default(uuid())
+  templateId           String
+  template             LegalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  key                  String
+  title                 String?
+  content               String?
+  isRequired            Boolean  @default(false)
+  order                 Int      @default(0)
+  originalTemplateText  String?
+  overlays              Json?
+  overlaysList          TemplateOverlay[]
+}
+
+model LegalTemplateLink {
+  id        String   @id @default(uuid())
+  templateId String
+  template  LegalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  nodeId    String
+  node      LegalGraphNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  role      String
+  createdAt DateTime @default(now())
+}
+
+model LegalTemplateVersion {
+  id           String   @id @default(uuid())
+  templateId   String
+  template     LegalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version      Int
+  changeReason String?
+  delta        Json?
+  createdAt    DateTime @default(now())
+}
+
+model TemplateOverlay {
+  id             String   @id @default(uuid())
+  sectionId      String
+  section        LegalTemplateSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  jurisdictionId String
+  jurisdiction   Jurisdiction @relation(fields: [jurisdictionId], references: [id])
+  overlayText    String?
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@unique([sectionId, jurisdictionId])
+}
+
+model GraphDelta {
+  id         String   @id @default(uuid())
+  entityType String
+  entityId   String
+  oldVersion Int
+  newVersion Int
+  diff       Json?
+  createdAt  DateTime @default(now())
+}
+
+model UpdateAudit {
+  id        String   @id @default(uuid())
+  module    String
+  action    String
+  resourceId String?
+  summary   String?
+  createdAt DateTime @default(now())
+}
+
+model JurisdictionConfirmation {
+  id             String   @id @default(uuid())
+  queryHash      String?
+  detectedIds    String[]
+  selectedIds    String[]
+  createdAt      DateTime @default(now())
+}
+
+// ============== User & Role ==============
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  role          UserRole @default(general_user)
+  jurisdictionDefaults String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum UserRole {
+  legal_professional
+  ngo_nonprofit
+  general_user
+  ukraine_professional
+}
+
+// ============== RD4U / Ukraine Reparations & Claims ==============
+model Rd4uCategory {
+  id                 String   @id @default(uuid())
+  categoryId         String   @unique
+  title              String
+  description        String?
+  eligibilityCriteria String?
+  requiredEvidence   String[]
+  narrativeStructure String?
+  metadata           Json?
+  versionNumber      Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  claims             Claim[]
+}
+
+model Claim {
+  id                String   @id @default(uuid())
+  rd4uCategoryId     String?
+  category           Rd4uCategory? @relation(fields: [rd4uCategoryId], references: [id])
+  title              String
+  status             String   @default("draft")
+  eligibilityMetadata Json?
+  paymentReadiness   String?
+  narrative          String?
+  harmClassification String?
+  timelineJson       Json?
+  iccuFramingJson    Json?
+  rd4uMetadata       Json?
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  evidence           Evidence[]
+  claimPackets       ClaimPacket[]
+}
+
+model Evidence {
+  id             String   @id @default(uuid())
+  claimId        String?
+  claim          Claim?   @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  type           String
+  storagePath    String?
+  timestamps     Json?
+  geolocation    Json?
+  rd4uCategoryId String?
+  harmNarrative  String?
+  chainOfCustody Json?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ClaimPacket {
+  id           String   @id @default(uuid())
+  claimId      String
+  claim        Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  format       String
+  storagePath  String?
+  locale       String   @default("en")
+  version      Int      @default(1)
+  createdAt    DateTime @default(now())
+}
