@@ -1,23 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { ensureCRMEntityForShipment } from '@/lib/crm-entities';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ensureCRMEntityForShipment } from "@/lib/crm-entities";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { trackingNumber, status, origin, destination } = body;
+
     const shipment = await prisma.shipment.create({
       data: {
-        trackingNumber: trackingNumber ?? null,
-        status: status ?? null,
-        origin: origin ?? null,
-        destination: destination ?? null,
-      },
+        trackingNumber,
+        status,
+        origin,
+        destination
+      }
     });
-    await ensureCRMEntityForShipment(shipment.id);
-    return NextResponse.json(shipment);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: 'Failed to create shipment' }, { status: 500 });
+
+    const crmEntity = await ensureCRMEntityForShipment(shipment);
+
+    return NextResponse.json(
+      { shipment, crmEntity },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to create shipment" },
+      { status: 500 }
+    );
   }
 }
+

@@ -1,27 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ingestDocument } from '@/lib/ingestion/pipeline';
+/**
+ * Ingestion API — POST ingestDocument. Returns normalized output; caller writes to graph.
+ */
 
-export async function POST(request: NextRequest) {
+import { NextRequest, NextResponse } from "next/server";
+import { ingestDocument } from "@/lib/ingestion";
+import type { RawDocument, SourceMetadata } from "@/lib/ingestion";
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const raw_document = body.raw_document ?? body;
-    const source_metadata = body.source_metadata;
-    const generate_id = body.generate_id !== false;
-    if (!raw_document?.content) {
+    const body = await req.json();
+    const raw = body.raw_document as RawDocument;
+    const sourceMetadata = body.source_metadata as SourceMetadata | undefined;
+    const generateId = body.generate_id !== false;
+
+    if (!raw?.content) {
       return NextResponse.json(
-        { success: false, errors: ['raw_document.content is required'] },
+        { success: false, errors: ["Missing raw_document.content"], warnings: [] },
         { status: 400 }
       );
     }
-    const result = ingestDocument(raw_document, source_metadata, { generate_id });
+
+    const result = await ingestDocument(raw, sourceMetadata ?? null, { generateId });
+
     if (!result.success) {
       return NextResponse.json(result, { status: 422 });
     }
-    return NextResponse.json(result);
+
+    return NextResponse.json(result, { status: 200 });
   } catch (e) {
-    console.error(e);
+    console.error("[ingestion]", e);
     return NextResponse.json(
-      { success: false, errors: ['Ingestion failed'] },
+      { success: false, errors: ["Ingestion failed"], warnings: [] },
       { status: 500 }
     );
   }

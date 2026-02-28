@@ -8,31 +8,44 @@
   --charcoal: #1c1c1e;
   --charcoal-light: #2a2a2d;
   --wsua-gold: #c9a227;
+
+  --background: #f5f5f7;
+  --foreground: #111827;
 }
 
 body {
-  @apply bg-[var(--charcoal)] text-gray-100 antialiased;
+  @apply bg-[#f5f5f7] text-slate-100;
 }
 
 .app-shell {
-  min-height: 100vh;
+  @apply min-h-screen bg-[#f5f5f7] text-slate-100;
 }
 
 .workspace-surface {
-  @apply bg-white text-gray-900;
+  @apply bg-white text-slate-900;
 }
 
 .charcoal-strip {
-  background: var(--charcoal);
-  border-bottom: 1px solid var(--charcoal-light);
+  @apply bg-[color:var(--charcoal)] text-slate-100;
 }
 
-.teal-accent {
+.charcoal-surface {
+  @apply bg-[color:var(--charcoal-light)] text-slate-100;
+}
+
+.wsua-accent-border {
   border-color: var(--wsua-teal);
-  color: var(--wsua-teal-light);
 }
 
-.focus-teal:focus-visible {
-  outline: 2px solid var(--wsua-teal-light);
-  outline-offset: 2px;
+.wsua-accent {
+  color: var(--wsua-teal);
 }
+
+.wsua-accent-bg {
+  background-color: var(--wsua-teal);
+}
+
+.wsua-accent-bg-light {
+  background-color: var(--wsua-teal-light);
+}
+

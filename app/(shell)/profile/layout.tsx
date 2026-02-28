@@ -1,7 +1,6 @@
-export default function ProfileLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return <>{children}</>;
+import type { ReactNode } from "react";
+
+export default function ProfileLayout({ children }: { children: ReactNode }) {
+  return <div className="h-full">{children}</div>;
 }
+

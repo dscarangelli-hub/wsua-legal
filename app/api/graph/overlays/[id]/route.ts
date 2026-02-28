@@ -1,21 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { updateOverlay } from '@/lib/graph/template-api';
+import { NextRequest, NextResponse } from "next/server";
+import { updateOverlay } from "@/lib/graph/template-api";
 
 export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const body = await req.json();
     const { overlayText } = body;
-    if (typeof overlayText !== 'string') {
-      return NextResponse.json({ error: 'overlayText required' }, { status: 400 });
+    if (typeof overlayText !== "string") {
+      return NextResponse.json({ error: "overlayText required" }, { status: 400 });
     }
-    const updated = await updateOverlay(id, overlayText);
-    return NextResponse.json(updated);
+    const result = await updateOverlay(params.id, overlayText);
+    return NextResponse.json(result);
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Failed to update overlay' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update overlay" }, { status: 500 });
   }
 }

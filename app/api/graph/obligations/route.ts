@@ -1,26 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { addObligation } from '@/lib/graph/ingestion';
+import { NextRequest, NextResponse } from "next/server";
+import { addObligation } from "@/lib/graph/ingestion";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { documentId, text, scope, jurisdictionId, legalBasis } = body;
     if (!documentId || !text) {
       return NextResponse.json(
-        { error: 'documentId and text required' },
+        { error: "Missing required: documentId, text" },
         { status: 400 }
       );
     }
-    const obligation = await addObligation({
+    const result = await addObligation({
       documentId,
       text,
       scope,
       jurisdictionId,
       legalBasis,
     });
-    return NextResponse.json(obligation);
+    return NextResponse.json(result, { status: 201 });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Failed to add obligation' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to add obligation" }, { status: 500 });
   }
 }

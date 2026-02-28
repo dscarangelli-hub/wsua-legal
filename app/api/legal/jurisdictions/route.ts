@@ -1,10 +1,13 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const list = await prisma.jurisdiction.findMany({
-    include: { parent: true },
-    orderBy: { code: 'asc' },
+  const jurisdictions = await prisma.jurisdiction.findMany({
+    orderBy: [{ layer: "asc" }, { name: "asc" }],
+    include: {
+      parent: { select: { id: true, code: true, name: true } },
+      _count: { select: { legalDocuments: true, templates: true } },
+    },
   });
-  return NextResponse.json(list);
+  return NextResponse.json({ jurisdictions });
 }

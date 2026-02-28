@@ -1,48 +1,117 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+
+const vaults = [
+  {
+    name: "Acme Corp – Master Services",
+    matters: 12,
+    owner: "Nguyen",
+    lastActivity: "Today, 09:24"
+  },
+  {
+    name: "Baltic Shipping – Compliance",
+    matters: 6,
+    owner: "Sharma",
+    lastActivity: "Yesterday, 16:02"
+  }
+];
 
 export default function VaultsPage() {
   return (
-    <div className="min-h-full p-6">
-      <header className="charcoal-strip -mx-6 -mt-6 flex items-center gap-4 px-6 py-4">
-        <span className="text-xs uppercase tracking-wider text-gray-400">
-          Workspace
-        </span>
-        <h1 className="text-lg font-semibold text-white">Vaults</h1>
-        <span className="h-px flex-1 border-b-2 border-[var(--wsua-teal)]" />
+    <div className="flex h-screen flex-col">
+      {/* Section header */}
+      <header className="charcoal-strip flex items-center justify-between border-b border-[color:var(--charcoal-light)] px-8 py-4">
+        <div className="flex flex-col">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Workspace
+          </div>
+          <div className="mt-1 flex items-baseline gap-4">
+            <h1 className="text-lg font-semibold text-slate-50">Vaults</h1>
+            <span className="h-0.5 w-10 rounded-full bg-[color:var(--wsua-teal)]" />
+          </div>
+        </div>
+        <Button variant="subtle" size="lg">
+          Create Vault
+        </Button>
       </header>
 
-      <div className="mt-6 flex gap-4">
-        <aside className="hidden w-48 flex-shrink-0 rounded bg-[var(--charcoal)] p-3 md:block">
-          <p className="text-xs font-semibold uppercase text-gray-400">
-            My vaults
-          </p>
-          <p className="text-xs text-gray-500">Team</p>
-          <p className="text-xs text-gray-500">Archived</p>
-        </aside>
-        <div className="flex-1">
-          <Button variant="subtle" className="mb-4">
-            Create Vault
-          </Button>
-          <div className="space-y-3">
-            <Card className="border-l-4 border-l-[var(--charcoal-light)]">
-              <CardHeader className="pb-2">
-                <CardTitle>Placeholder Vault</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-600">
-                <p>Owner: System</p>
-                <p>Matters: 0</p>
-                <span className="mt-2 inline-block rounded border border-[var(--wsua-teal)] px-2 py-0.5 text-xs text-[var(--wsua-teal)]">
-                  Structured
+      {/* Vault list */}
+      <div className="flex-1 overflow-auto px-8 py-6">
+        <div className="mx-auto flex max-w-6xl gap-6">
+          <aside className="hidden w-64 flex-shrink-0 flex-col rounded-lg border border-[color:var(--charcoal-light)] bg-[color:var(--charcoal)] px-4 py-4 text-xs text-slate-200 md:flex">
+            <div className="mb-3 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Filters
+            </div>
+            <div className="space-y-2 text-slate-300">
+              <div className="flex items-center justify-between">
+                <span>My vaults</span>
+                <span className="rounded-full bg-[color:var(--charcoal-light)] px-2 py-0.5 text-[0.65rem]">
+                  8
                 </span>
-              </CardContent>
-            </Card>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">
-            Placeholder list – internals to follow
-          </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Team</span>
+                <span className="rounded-full bg-[color:var(--charcoal-light)] px-2 py-0.5 text-[0.65rem]">
+                  14
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Archived</span>
+                <span className="rounded-full bg-[color:var(--charcoal-light)] px-2 py-0.5 text-[0.65rem]">
+                  3
+                </span>
+              </div>
+            </div>
+          </aside>
+
+          <section className="flex-1 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold tracking-wide text-slate-700">
+                Vault catalog
+              </h2>
+              <span className="text-xs text-slate-500">
+                Placeholder list – internals to follow
+              </span>
+            </div>
+            <div className="space-y-3">
+              {vaults.map((vault) => (
+                <Card key={vault.name} className="overflow-hidden">
+                  <div className="flex">
+                    <div className="w-1 bg-[color:var(--charcoal-light)]" />
+                    <div className="flex-1">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold">
+                          {vault.name}
+                        </CardTitle>
+                        <CardDescription>
+                          <span className="text-xs text-slate-500">
+                            Owner {vault.owner} · Last activity {vault.lastActivity}
+                          </span>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0 pb-3">
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>{vault.matters} active matters</span>
+                          <span className="rounded-full border border-[color:var(--wsua-teal)] px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.16em] text-[color:var(--wsua-teal)]">
+                            Structured
+                          </span>
+                        </div>
+                      </CardContent>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>
   );
 }
+

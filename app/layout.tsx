@@ -1,19 +1,19 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import "./globals.css";
+import type { Metadata } from "next";
+import { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: 'WSUA Legal Intelligence Platform',
-  description: 'Federated Legal Intelligence Platform',
+  title: "WSUA Legal Intelligence Platform",
+  description: "Workstation-grade legal environment for WSUA."
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="app-shell">{children}</body>
+      <body className="app-shell antialiased">
+        {children}
+      </body>
     </html>
   );
 }
+

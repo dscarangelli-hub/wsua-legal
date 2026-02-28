@@ -1,25 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { confirmSelector } from '@/lib/legal/jurisdiction-selector';
+import { NextRequest, NextResponse } from "next/server";
+import { confirmSelector } from "@/lib/legal/jurisdiction-selector";
+import type { JurisdictionConfirmInput } from "@/lib/legal/selector-contract";
 
-export async function POST(request: NextRequest) {
+/**
+ * Jurisdiction selector — confirm step (when requires_confirmation was true).
+ * Body: { selected_jurisdiction_ids: string[], query? }
+ * Returns: JurisdictionSelectorResult with confirmed_jurisdictions set and requires_confirmation false.
+ */
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const { selected_jurisdiction_ids, query } = body;
-    if (!Array.isArray(selected_jurisdiction_ids)) {
-      return NextResponse.json(
-        { error: 'selected_jurisdiction_ids required' },
-        { status: 400 }
-      );
-    }
+    const body = (await req.json().catch(() => ({}))) as JurisdictionConfirmInput;
     const result = await confirmSelector({
-      selected_jurisdiction_ids,
-      query,
+      selected_jurisdiction_ids: body.selected_jurisdiction_ids ?? [],
+      query: body.query,
     });
     return NextResponse.json(result);
   } catch (e) {
     console.error(e);
     return NextResponse.json(
-      { error: 'Confirmation failed' },
+      { error: "Jurisdiction confirmation failed" },
       { status: 500 }
     );
   }

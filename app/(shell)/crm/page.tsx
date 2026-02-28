@@ -1,326 +1,484 @@
-'use client';
+\"use client\";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useEffect, useMemo, useState } from \"react\";
+import { Button } from \"@/components/ui/button\";
+import { cn } from \"@/lib/utils\";
 
-const ENTITY_LABELS = [
-  'People',
-  'Organizations',
-  'Activities',
-  'Documents',
-  'Cases',
-  'Shipments',
-  'Partner Verifications',
-] as const;
+type ExplorerEntity =
+  | \"PERSON\"
+  | \"ORG\"
+  | \"ACTIVITY\"
+  | \"DOCUMENT\"
+  | \"CASE\"
+  | \"SHIPMENT\"
+  | \"VERIFICATION\";
 
-type EntityCategory = (typeof ENTITY_LABELS)[number];
+type SearchResultGroup = {
+  label: string;
+  type: ExplorerEntity;
+};
 
-interface SearchResults {
-  people: Array<{ id: string; firstName?: string; lastName?: string; email?: string }>;
-  organizations: Array<{ id: string; name: string }>;
-  activities: Array<{ id: string; type: string; description?: string }>;
-  documents: Array<{ id: string; title: string }>;
-  cases: Array<{ id: string; title: string }>;
-  shipments: Array<{ id: string; trackingNumber?: string }>;
-  verifications: Array<{ id: string; status?: string }>;
-}
+const EXPLORER_ITEMS: { label: string; type: ExplorerEntity }[] = [
+  { label: \"People\", type: \"PERSON\" },
+  { label: \"Organizations\", type: \"ORG\" },
+  { label: \"Activities\", type: \"ACTIVITY\" },
+  { label: \"Documents\", type: \"DOCUMENT\" },
+  { label: \"Cases\", type: \"CASE\" },
+  { label: \"Shipments\", type: \"SHIPMENT\" },
+  { label: \"Partner Verifications\", type: \"VERIFICATION\" }
+];
 
-export default function CRMPage() {
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+export default function CrmPage() {
+  const [query, setQuery] = useState(\"\");
+  const [activeType, setActiveType] = useState<ExplorerEntity>(\"PERSON\");
+  const [searchResults, setSearchResults] = useState<any | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-  const [entity, setEntity] = useState<Record<string, unknown> | null>(null);
-  const [relationships, setRelationships] = useState<unknown[]>([]);
-  const [activeCategory, setActiveCategory] = useState<EntityCategory>('People');
-  const [relTargetId, setRelTargetId] = useState('');
-  const [relType, setRelType] = useState('');
+  const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const [relationships, setRelationships] = useState<any[]>([]);
 
-  const runSearch = useCallback(async () => {
-    if (!query.trim()) {
-      setSearchResults(null);
-      return;
-    }
-    const res = await fetch(`/api/crm/search?q=${encodeURIComponent(query)}`);
-    const data = await res.json();
-    setSearchResults(data);
+  useEffect(() => {
+    const controller = new AbortController();
+    const run = async () => {
+      if (!query.trim()) {
+        setSearchResults(null);
+        return;
+      }
+      const res = await fetch(`/api/crm/search?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSearchResults(data.results);
+    };
+    const timeout = setTimeout(run, 220);
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
   }, [query]);
 
   useEffect(() => {
-    const t = setTimeout(runSearch, 300);
-    return () => clearTimeout(t);
-  }, [query, runSearch]);
-
-  useEffect(() => {
-    if (!selectedEntityId) {
-      setEntity(null);
-      setRelationships([]);
-      return;
-    }
-    (async () => {
-      const [eRes, rRes] = await Promise.all([
+    const loadEntity = async () => {
+      if (!selectedEntityId) {
+        setSelectedEntity(null);
+        setRelationships([]);
+        return;
+      }
+      const [entityRes, relRes] = await Promise.all([
         fetch(`/api/crm/entity/${selectedEntityId}`),
-        fetch(`/api/crm/entity/${selectedEntityId}/relationships`),
+        fetch(`/api/crm/entity/${selectedEntityId}/relationships`)
       ]);
-      const eData = await eRes.json();
-      const rData = await rRes.json();
-      setEntity(eRes.ok ? eData : null);
-      setRelationships(rRes.ok ? rData : []);
-    })();
+      if (entityRes.ok) {
+        const data = await entityRes.json();
+        setSelectedEntity(data.entity);
+      }
+      if (relRes.ok) {
+        const data = await relRes.json();
+        setRelationships(data.relationships);
+      }
+    };
+    void loadEntity();
   }, [selectedEntityId]);
 
-  const selectFromSearch = (id: string, crmEntityId?: string | null) => {
-    setSelectedEntityId(crmEntityId ?? id);
-    setSearchResults(null);
-    setQuery('');
-  };
-
-  const addRelationship = async () => {
-    if (!selectedEntityId || !relTargetId || !relType) return;
-    await fetch('/api/crm/relationship', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fromId: selectedEntityId,
-        toId: relTargetId,
-        type: relType,
-      }),
-    });
-    setRelTargetId('');
-    setRelType('');
-    const rRes = await fetch(`/api/crm/entity/${selectedEntityId}/relationships`);
-    const rData = await rRes.json();
-    setRelationships(rData);
-  };
-
-  const displayName = entity
-    ? entity.person
-      ? `${(entity.person as { firstName?: string }).firstName} ${(entity.person as { lastName?: string }).lastName}`
-      : entity.organization
-        ? (entity.organization as { name: string }).name
-        : entity.case
-          ? (entity.case as { title: string }).title
-          : entity.document
-            ? (entity.document as { title: string }).title
-            : entity.shipment
-              ? (entity.shipment as { trackingNumber?: string }).trackingNumber ?? entity.id
-              : entity.id
-    : null;
+  const groupedResults: SearchResultGroup[] = useMemo(
+    () => [
+      { label: \"People\", type: \"PERSON\" },
+      { label: \"Organizations\", type: \"ORG\" },
+      { label: \"Activities\", type: \"ACTIVITY\" },
+      { label: \"Documents\", type: \"DOCUMENT\" },
+      { label: \"Cases\", type: \"CASE\" },
+      { label: \"Shipments\", type: \"SHIPMENT\" },
+      { label: \"Partner Verifications\", type: \"VERIFICATION\" }
+    ],
+    []
+  );
 
   return (
-    <div className="flex h-full min-h-[80vh]">
-      <header className="absolute left-0 right-0 top-0 charcoal-strip z-10 flex items-center gap-4 px-6 py-4">
-        <span className="text-xs uppercase tracking-wider text-gray-400">
-          Workspace
-        </span>
-        <h1 className="text-lg font-semibold text-white">CRM</h1>
-        <span className="h-px flex-1 border-b-2 border-[var(--wsua-teal)]" />
+    <div className=\"flex h-screen flex-col\">
+      <header className=\"charcoal-strip flex items-center justify-between border-b border-[color:var(--charcoal-light)] px-8 py-4\">
+        <div className=\"flex flex-col\">
+          <div className=\"text-xs font-semibold uppercase tracking-[0.2em] text-slate-400\">
+            Workspace
+          </div>
+          <div className=\"mt-1 flex items-baseline gap-4\">
+            <h1 className=\"text-lg font-semibold text-slate-50\">CRM</h1>
+            <span className=\"h-0.5 w-10 rounded-full bg-[color:var(--wsua-teal)]\" />
+          </div>
+        </div>
       </header>
 
-      <aside className="mt-14 w-48 flex-shrink-0 border-r border-gray-200 bg-[var(--charcoal)] p-3">
-        <p className="text-xs font-semibold uppercase text-gray-400">Entities</p>
-        <ul className="mt-2 space-y-0.5">
-          {ENTITY_LABELS.map((label) => (
-            <li key={label}>
-              <button
-                type="button"
-                onClick={() => setActiveCategory(label)}
-                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
-                  activeCategory === label
-                    ? 'bg-[var(--charcoal-light)] text-[var(--wsua-teal-light)]'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {activeCategory === label && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--wsua-teal)]" />
-                )}
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
-      <div className="flex-1 overflow-auto p-6 pt-20">
-        <div className="mb-4">
-          <input
-            type="search"
-            placeholder="Search all CRM entities..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full max-w-md rounded border border-[var(--charcoal-light)] bg-[var(--charcoal)] px-3 py-2 text-white placeholder-gray-400 focus:border-[var(--wsua-teal)] focus:ring-1 focus:ring-[var(--wsua-teal)]"
-          />
-          {searchResults && (
-            <div className="absolute z-20 mt-1 max-h-64 w-full max-w-md overflow-auto rounded border border-gray-200 bg-white shadow-lg">
-              {searchResults.people.length > 0 && (
-                <div className="border-b p-2">
-                  <p className="text-xs font-semibold text-gray-500">People</p>
-                  {searchResults.people.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-gray-100"
-                      onClick={() => selectFromSearch(p.id, (p as { crmEntityId?: string | null }).crmEntityId)}
-                    >
-                      {p.firstName} {p.lastName}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {searchResults.organizations.length > 0 && (
-                <div className="border-b p-2">
-                  <p className="text-xs font-semibold text-gray-500">Organizations</p>
-                  {searchResults.organizations.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-gray-100"
-                      onClick={() => selectFromSearch(o.id, (o as { crmEntityId?: string | null }).crmEntityId)}
-                    >
-                      {o.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {searchResults.cases.length > 0 && (
-                <div className="p-2">
-                  <p className="text-xs font-semibold text-gray-500">Cases</p>
-                  {searchResults.cases.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-gray-100"
-                      onClick={() => selectFromSearch(c.id, (c as { crmEntityId?: string | null }).crmEntityId)}
-                    >
-                      {c.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {displayName ?? 'Profile'}
-                  {entity && (
-                    <span className="rounded border border-[var(--wsua-teal)] px-2 py-0.5 text-xs text-[var(--wsua-teal)]">
-                      {(entity as { type?: string }).type}
-                    </span>
+      <div className=\"flex flex-1 overflow-hidden\">
+        {/* Left Entity Explorer */}
+        <aside className=\"hidden h-full w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-[color:var(--charcoal)] text-xs text-slate-100 md:flex\">
+          <div className=\"px-4 py-3 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-slate-400\">
+            Entities
+          </div>
+          <nav className=\"flex-1 space-y-0.5 px-2 pb-4\">
+            {EXPLORER_ITEMS.map((item) => {
+              const active = activeType === item.type;
+              return (
+                <button
+                  key={item.type}
+                  onClick={() => setActiveType(item.type)}
+                  className={cn(
+                    \"flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs transition-colors\",
+                    active
+                      ? \"bg-[color:var(--charcoal-light)] text-slate-50\"
+                      : \"text-slate-300 hover:bg-[color:var(--charcoal-light)]\"
                   )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-600">
-                {entity && (
-                  <pre className="whitespace-pre-wrap break-words text-xs">
-                    {JSON.stringify(
-                      {
-                        ...entity.person,
-                        ...entity.organization,
-                        ...entity.activity,
-                        ...entity.case,
-                        ...entity.shipment,
-                        ...entity.partnerVerification,
-                      },
-                      null,
-                      2
+                >
+                  <span>{item.label}</span>
+                  {active && (
+                    <span className=\"h-1.5 w-1.5 rounded-full bg-[color:var(--wsua-teal)]\" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* Main workspace */}
+        <main className=\"workspace-surface flex-1 overflow-auto px-8 py-6\">
+          <div className=\"mx-auto flex max-w-6xl flex-col gap-4\">
+            {/* Top search bar */}
+            <section className=\"space-y-2\">
+              <div className=\"flex items-center justify-between\">
+                <div>
+                  <div className=\"text-xs font-semibold uppercase tracking-[0.16em] text-slate-500\">
+                    Global search
+                  </div>
+                  <p className=\"mt-1 text-xs text-slate-500\">
+                    Graph-based search across people, organizations, matters, and activity.
+                  </p>
+                </div>
+              </div>
+              <div className=\"relative\">
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className=\"w-full rounded-md border border-slate-700 bg-[color:var(--charcoal)] px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                  placeholder=\"Search people, organizations, cases, shipments, documents...\"
+                />
+                {searchResults && (
+                  <div className=\"absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-md border border-slate-200 bg-white text-xs shadow-lg\">
+                    {groupedResults.map((group) => {
+                      const key =
+                        group.type === \"PERSON\"
+                          ? \"people\"
+                          : group.type === \"ORG\"
+                          ? \"organizations\"
+                          : group.type === \"ACTIVITY\"
+                          ? \"activities\"
+                          : group.type === \"DOCUMENT\"
+                          ? \"documents\"
+                          : group.type === \"CASE\"
+                          ? \"cases\"
+                          : group.type === \"SHIPMENT\"
+                          ? \"shipments\"
+                          : \"verifications\";
+                      const items = (searchResults as any)[key] as any[];
+                      if (!items || items.length === 0) return null;
+                      return (
+                        <div key={group.type} className=\"border-b border-slate-100 last:border-b-0\">
+                          <div className=\"bg-slate-50 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500\">
+                            {group.label}
+                          </div>
+                          <ul className=\"divide-y divide-slate-100\">
+                            {items.map((item) => (
+                              <li
+                                key={item.id}
+                                className=\"cursor-pointer px-3 py-1.5 hover:bg-slate-50\"
+                                onClick={() => {
+                                  setSelectedEntityId(item.crmEntityId ?? item.id);
+                                  setQuery(\"\");
+                                  setSearchResults(null);
+                                }}
+                              >
+                                <div className=\"flex items-center justify-between\">
+                                  <span className=\"text-slate-800\">
+                                    {item.firstName
+                                      ? `${item.firstName} ${item.lastName ?? \"\"}`
+                                      : item.name ??
+                                        item.title ??
+                                        item.trackingNumber ??
+                                        item.status}
+                                  </span>
+                                  <span className=\"text-[0.65rem] text-slate-400\">
+                                    {group.label}
+                                  </span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Two-column main workspace */}
+            <section className=\"grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)]\">
+              {/* Profile & filters */}
+              <div className=\"space-y-3\">
+                <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                  <div className=\"flex items-center justify-between\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Profile
+                      </div>
+                      <div className=\"mt-1 text-sm font-semibold text-slate-900\">
+                        {selectedEntity
+                          ? selectedEntity.person?.firstName
+                            ? `${selectedEntity.person.firstName} ${selectedEntity.person.lastName ?? \"\"}`
+                            : selectedEntity.organization?.name ??
+                              selectedEntity.case?.title ??
+                              selectedEntity.document?.title ??
+                              selectedEntity.shipment?.trackingNumber ??
+                              \"Selected entity\"
+                          : \"No entity selected\"}
+                      </div>
+                    </div>
+                    {selectedEntity && (
+                      <span className=\"rounded-full border border-[color:var(--wsua-teal)] px-3 py-1 text-[0.65rem] uppercase tracking-[0.16em] text-[color:var(--wsua-teal)]\">
+                        {selectedEntity.type}
+                      </span>
                     )}
-                  </pre>
-                )}
-                {!selectedEntityId && (
-                  <p>Select an entity from search or use the entity list.</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Linked Vaults</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-500">
-                Vault links (vaultId, vaultName, role) — ready to bind to VaultLink
-                records.
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="border-2 border-dashed border-gray-300">
-              <CardHeader>
-                <CardTitle className="text-[var(--wsua-teal)]">
-                  Graph canvas placeholder
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-500">
-                Future graph visualization.
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Relationships</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    placeholder="Target entity ID"
-                    value={relTargetId}
-                    onChange={(e) => setRelTargetId(e.target.value)}
-                    className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-[var(--wsua-teal)]"
-                  />
-                  <input
-                    placeholder="Type (e.g. EMPLOYED_BY)"
-                    value={relType}
-                    onChange={(e) => setRelType(e.target.value)}
-                    className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-[var(--wsua-teal)]"
-                  />
-                  <Button
-                    variant="default"
-                    onClick={addRelationship}
-                    disabled={!selectedEntityId || !relTargetId || !relType}
-                  >
-                    Add relationship
-                  </Button>
+                  </div>
+                  <div className=\"mt-3 grid grid-cols-2 gap-3\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Location
+                      </div>
+                      <div className=\"mt-1 text-xs text-slate-700\">
+                        {selectedEntity?.person?.location ??
+                          selectedEntity?.organization?.location ??
+                          selectedEntity?.shipment?.origin ??
+                          \"–\"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Tags
+                      </div>
+                      <div className=\"mt-1 flex flex-wrap gap-1\">
+                        {(selectedEntity?.person?.tags ??
+                          selectedEntity?.organization?.tags ??
+                          [])?.map((tag: string) => (
+                          <span
+                            key={tag}
+                            className=\"rounded-full border border-slate-300 px-2 py-0.5 text-[0.65rem] text-slate-600\"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {(!selectedEntity ||
+                          (!selectedEntity.person?.tags &&
+                            !selectedEntity.organization?.tags)) && (
+                          <span className=\"text-xs text-slate-500\">–</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className=\"mt-3 grid grid-cols-2 gap-3\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Trust score
+                      </div>
+                      <div className=\"mt-1 text-xs text-slate-700\">
+                        {selectedEntity?.person?.trustScore ?? \"–\"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Risk flags
+                      </div>
+                      <div className=\"mt-1 flex flex-wrap gap-1\">
+                        {selectedEntity?.person?.riskFlags?.map((flag: string) => (
+                          <span
+                            key={flag}
+                            className=\"rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[0.65rem] text-red-700\"
+                          >
+                            {flag}
+                          </span>
+                        )) || <span className=\"text-xs text-slate-500\">–</span>}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <ul className="space-y-1">
-                  {(relationships as Array<{ id: string; type: string; fromId: string; toId: string }>).map(
-                    (r) => (
-                      <li
-                        key={r.id}
-                        className="rounded border border-[var(--wsua-teal)] px-2 py-1 text-xs text-[var(--wsua-teal)]"
+
+                {/* Filters */}
+                <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                  <div className=\"flex items-center justify-between\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Filters
+                      </div>
+                      <div className=\"mt-1 text-xs text-slate-500\">
+                        Location, tags, trust, risk, type, and status.
+                      </div>
+                    </div>
+                  </div>
+                  <div className=\"mt-3 grid grid-cols-2 gap-3\">
+                    <input
+                      className=\"rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Location\"
+                    />
+                    <input
+                      className=\"rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Tags\"
+                    />
+                    <input
+                      className=\"rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Min trust score\"
+                    />
+                    <input
+                      className=\"rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Risk flags\"
+                    />
+                    <input
+                      className=\"rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Organization type\"
+                    />
+                    <input
+                      className=\"rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Case status\"
+                    />
+                  </div>
+                </div>
+
+                {/* Linked vaults placeholder */}
+                <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                  <div className=\"flex items-center justify-between\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Linked vaults
+                      </div>
+                      <div className=\"mt-1 text-xs text-slate-500\">
+                        Relationships between CRM entities and WSUA vaults.
+                      </div>
+                    </div>
+                  </div>
+                  <div className=\"mt-2 text-xs text-slate-500\">
+                    Vault links will appear here once connected. Each will show vault id,
+                    name, and role (claimant, partner, donor, etc.).
+                  </div>
+                </div>
+              </div>
+
+              {/* Graph, relationships, activity */}
+              <div className=\"space-y-3\">
+                {/* Relationship graph placeholder */}
+                <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                  <div className=\"flex items-center justify-between\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Relationship graph
+                      </div>
+                      <div className=\"mt-1 text-xs text-slate-500\">
+                        Visual map of connected entities (placeholder).
+                      </div>
+                    </div>
+                  </div>
+                  <div className=\"mt-3 flex h-32 items-center justify-center rounded-md border border-dashed border-slate-200 text-[0.7rem] text-slate-400\">
+                    Graph canvas placeholder – to be backed by actual graph rendering.
+                  </div>
+                </div>
+
+                {/* Relationship list & creator */}
+                <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                  <div className=\"flex items-center justify-between\">
+                    <div>
+                      <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                        Relationships
+                      </div>
+                      <div className=\"mt-1 text-xs text-slate-500\">
+                        Structured links across people, organizations, cases, and documents.
+                      </div>
+                    </div>
+                  </div>
+                  <div className=\"mt-3 flex items-center gap-2\">
+                    <input
+                      className=\"flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Target entity id\"
+                    />
+                    <input
+                      className=\"w-40 rounded-md border border-slate-200 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--wsua-teal-light)]\"
+                      placeholder=\"Relationship type\"
+                    />
+                    <Button
+                      variant=\"default\"
+                      size=\"sm\"
+                      type=\"button\"
+                    >
+                      Add relationship
+                    </Button>
+                  </div>
+                  <div className=\"mt-3 space-y-1.5\">
+                    {relationships.length === 0 && (
+                      <div className=\"text-xs text-slate-500\">
+                        No relationships yet for the selected entity.
+                      </div>
+                    )}
+                    {relationships.map((rel) => (
+                      <div
+                        key={rel.id}
+                        className=\"flex items-center justify-between rounded-md border border-slate-200 px-2 py-1 text-[0.7rem]\"
                       >
-                        {r.type}: {r.fromId} → {r.toId}
-                      </li>
-                    )
-                  )}
-                </ul>
-              </CardContent>
-            </Card>
+                        <span className=\"uppercase tracking-[0.16em] text-[color:var(--wsua-teal)]\">
+                          {rel.type}
+                        </span>
+                        <span className=\"text-slate-500\">
+                          {rel.fromId} → {rel.toId}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity history</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-500">
-                Hook to Activity model (calls, meetings, messages).
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>AI insights</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-500">
-                Future AI-ready summaries and risk detection.
-              </CardContent>
-            </Card>
+                {/* Activity & AI insights placeholder */}
+                <div className=\"grid gap-3 md:grid-cols-2\">
+                  <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                    <div className=\"flex items-center justify-between\">
+                      <div>
+                        <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                          Activity history
+                        </div>
+                        <div className=\"mt-1 text-xs text-slate-500\">
+                          Stream of CRM-relevant events for this entity.
+                        </div>
+                      </div>
+                    </div>
+                    <div className=\"mt-2 text-xs text-slate-500\">
+                      Hook this panel to the Activity model to surface calls, meetings, emails,
+                      donations, messages, and more.
+                    </div>
+                  </div>
+                  <div className=\"rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700\">
+                    <div className=\"flex items-center justify-between\">
+                      <div>
+                        <div className=\"text-[0.65rem] uppercase tracking-[0.16em] text-slate-400\">
+                          AI insights
+                        </div>
+                        <div className=\"mt-1 text-xs text-slate-500\">
+                          Placeholder for AI-ready summaries and risk detection.
+                        </div>
+                      </div>
+                    </div>
+                    <div className=\"mt-2 text-xs text-slate-500\">
+                      This zone will consume the structured CRM graph, vault links, and activity
+                      history to generate context-rich legal intelligence.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
 }
+
+

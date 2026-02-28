@@ -1,15 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createTemplateVersion } from '@/lib/graph/template-api';
+import { NextRequest, NextResponse } from "next/server";
+import { createTemplateVersion } from "@/lib/graph/template-api";
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const body = await request.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
     const { changeReason, changeLog, delta } = body;
-    const result = await createTemplateVersion(id, {
+    const result = await createTemplateVersion(params.id, {
       changeReason,
       changeLog,
       delta,
@@ -17,6 +16,6 @@ export async function POST(
     return NextResponse.json(result);
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Failed to create template version' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create template version" }, { status: 500 });
   }
 }

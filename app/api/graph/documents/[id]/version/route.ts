@@ -1,25 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { updateDocumentVersion } from '@/lib/graph/ingestion';
+import { NextRequest, NextResponse } from "next/server";
+import { updateDocumentVersion } from "@/lib/graph/ingestion";
+import type { LegalModule } from "@/lib/legal/types";
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const documentId = params.id;
+    const body = await req.json();
     const { normalizedText, contentDelta, changeSummary, module } = body;
     if (!module) {
-      return NextResponse.json({ error: 'module required' }, { status: 400 });
+      return NextResponse.json({ error: "module required" }, { status: 400 });
     }
     const result = await updateDocumentVersion(
-      id,
-      { normalizedText, contentDelta, changeSummary },
-      module
+      { documentId, normalizedText, contentDelta, changeSummary },
+      module as LegalModule
     );
     return NextResponse.json(result);
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Failed to update version' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update document version" }, { status: 500 });
   }
 }

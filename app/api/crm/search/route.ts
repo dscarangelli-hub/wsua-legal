@@ -1,76 +1,96 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get('q') ?? '';
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get("q") ?? "";
+
   if (!q.trim()) {
-    return NextResponse.json({
-      people: [],
-      organizations: [],
-      activities: [],
-      documents: [],
-      cases: [],
-      shipments: [],
-      verifications: [],
-    });
+    return NextResponse.json({ results: [] });
   }
-  const contains = { contains: q, mode: 'insensitive' as const };
+
+  const like = `%${q}%`;
+
   const [people, organizations, activities, documents, cases, shipments, verifications] =
     await Promise.all([
       prisma.person.findMany({
         where: {
           OR: [
-            { firstName: contains },
-            { lastName: contains },
-            { email: contains },
-          ],
+            { firstName: { contains: q, mode: "insensitive" } },
+            { lastName: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } }
+          ]
         },
-        take: 10,
-        select: { id: true, firstName: true, lastName: true, email: true, crmEntityId: true },
+        take: 10
       }),
       prisma.organization.findMany({
-        where: { name: contains },
-        take: 10,
-        select: { id: true, name: true, crmEntityId: true },
+        where: {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { type: { contains: q, mode: "insensitive" } }
+          ]
+        },
+        take: 10
       }),
       prisma.activity.findMany({
-        where: { description: contains },
-        take: 10,
-        select: { id: true, type: true, description: true, crmEntityId: true },
+        where: {
+          OR: [
+            { type: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } }
+          ]
+        },
+        take: 10
       }),
       prisma.document.findMany({
-        where: { title: contains },
-        take: 10,
-        select: { id: true, title: true, crmEntityId: true },
+        where: {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { type: { contains: q, mode: "insensitive" } }
+          ]
+        },
+        take: 10
       }),
       prisma.case.findMany({
-        where: { title: contains },
-        take: 10,
-        select: { id: true, title: true, crmEntityId: true },
+        where: {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { type: { contains: q, mode: "insensitive" } },
+            { status: { contains: q, mode: "insensitive" } }
+          ]
+        },
+        take: 10
       }),
       prisma.shipment.findMany({
         where: {
           OR: [
-            { trackingNumber: contains },
-            { origin: contains },
-            { destination: contains },
-          ],
+            { trackingNumber: { contains: q, mode: "insensitive" } },
+            { origin: { contains: q, mode: "insensitive" } },
+            { destination: { contains: q, mode: "insensitive" } }
+          ]
         },
-        take: 10,
-        select: { id: true, trackingNumber: true, crmEntityId: true },
+        take: 10
       }),
       prisma.partnerVerification.findMany({
-        take: 10,
-        select: { id: true, status: true, crmEntityId: true },
-      }),
+        where: {
+          OR: [
+            { status: { contains: q, mode: "insensitive" } },
+            { notes: { contains: q, mode: "insensitive" } }
+          ]
+        },
+        take: 10
+      })
     ]);
+
   return NextResponse.json({
-    people,
-    organizations,
-    activities,
-    documents,
-    cases,
-    shipments,
-    verifications,
+    results: {
+      people,
+      organizations,
+      activities,
+      documents,
+      cases,
+      shipments,
+      verifications
+    }
   });
 }
+

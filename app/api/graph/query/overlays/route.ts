@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getOverlaysForJurisdiction } from '@/lib/graph/query-layer';
+import { NextRequest, NextResponse } from "next/server";
+import { getOverlaysForJurisdiction } from "@/lib/graph/query-layer";
 
-export async function GET(request: NextRequest) {
-  const jurisdictionId = request.nextUrl.searchParams.get('jurisdictionId') ?? '';
-  const templateId = request.nextUrl.searchParams.get('templateId') ?? undefined;
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const jurisdictionId = searchParams.get("jurisdictionId");
+  const templateId = searchParams.get("templateId") ?? undefined;
   if (!jurisdictionId) {
-    return NextResponse.json({ error: 'jurisdictionId required' }, { status: 400 });
+    return NextResponse.json({ error: "jurisdictionId required" }, { status: 400 });
   }
-  const list = await getOverlaysForJurisdiction(jurisdictionId, templateId);
-  return NextResponse.json(list);
+  const overlays = await getOverlaysForJurisdiction(jurisdictionId, templateId);
+  return NextResponse.json({ overlays });
 }

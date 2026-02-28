@@ -1,14 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  _req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
+
   const relationships = await prisma.relationship.findMany({
-    where: { OR: [{ fromId: id }, { toId: id }] },
-    include: { from: true, to: true },
+    where: {
+      OR: [{ fromId: id }, { toId: id }]
+    },
+    include: {
+      from: true,
+      to: true
+    }
   });
-  return NextResponse.json(relationships);
+
+  return NextResponse.json({ relationships });
 }
+

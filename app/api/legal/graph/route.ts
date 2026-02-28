@@ -1,31 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest) {
-  const jurisdictionIds = request.nextUrl.searchParams.get('jurisdictionIds') ?? '';
-  const limit = Math.min(Number(request.nextUrl.searchParams.get('limit')) || 50, 200);
-  const ids = jurisdictionIds ? jurisdictionIds.split(',').map((s) => s.trim()).filter(Boolean) : [];
+/**
+ * Unified Legal Graph — query nodes and edges (optionally by jurisdiction).
+ */
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const jurisdictionIds = searchParams.get("jurisdictionIds")?.split(",").filter(Boolean) ?? [];
+  const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
 
-  const where = ids.length
-    ? { OR: [{ fromNode: { jurisdictionId: { in: ids } } }, { toNode: { jurisdictionId: { in: ids } } }] }
-    : {};
+  const where =
+    jurisdictionIds.length > 0
+      ? { OR: [{ jurisdictionId: { in: jurisdictionIds } }, { jurisdictionId: null }] }
+      : {};
 
   const [nodes, edges] = await Promise.all([
     prisma.legalGraphNode.findMany({
-      where: ids.length ? { jurisdictionId: { in: ids } } : {},
+      where,
+      include: {
+        document: { select: { id: true, title: true, documentType: true, module: true } },
+        jurisdiction: { select: { id: true, code: true, name: true } },
+      },
       take: limit,
-      include: { document: true, jurisdiction: true },
     }),
     prisma.legalGraphEdge.findMany({
-      where,
-      take: limit,
-      include: { fromNode: true, toNode: true },
+      where: jurisdictionIds.length > 0
+        ? {
+            OR: [
+              { from: { jurisdictionId: { in: jurisdictionIds } } },
+              { to: { jurisdictionId: { in: jurisdictionIds } } },
+            ],
+          }
+        : {},
+      include: {
+        from: { select: { id: true, label: true, nodeType: true } },
+        to: { select: { id: true, label: true, nodeType: true } },
+      },
+      take: limit * 2,
     }),
   ]);
 
   return NextResponse.json({
     nodes,
     edges,
-    authorityOrder: ['international', 'regional', 'national', 'subnational'],
+    authorityOrder: ["international", "regional", "national", "subnational"],
   });
 }

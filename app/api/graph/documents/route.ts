@@ -1,37 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { addLegalDocument } from '@/lib/graph/ingestion';
+import { NextRequest, NextResponse } from "next/server";
+import { addLegalDocument } from "@/lib/graph/ingestion";
+import type { LegalModule } from "@/lib/legal/types";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const { module, title, documentType, jurisdictionId, rawContent, normalizedContent, legalLevel, authority, dateAdopted, dateEffective, originalLanguage, sourceUrl, externalId } = body;
-    if (!module || !title || !documentType) {
+    const body = await req.json();
+    const { module, ...document } = body;
+    if (!module || !document.title || !document.documentType || !document.jurisdictionId) {
       return NextResponse.json(
-        { error: 'module, title, documentType required' },
+        { error: "Missing required: module, title, documentType, jurisdictionId" },
         { status: 400 }
       );
     }
-    const result = await addLegalDocument(
-      {
-        title,
-        documentType,
-        jurisdictionId,
-        module,
-        rawContent,
-        normalizedContent,
-        legalLevel,
-        authority,
-        dateAdopted: dateAdopted ? new Date(dateAdopted) : undefined,
-        dateEffective: dateEffective ? new Date(dateEffective) : undefined,
-        originalLanguage,
-        sourceUrl,
-        externalId,
-      },
-      module
-    );
-    return NextResponse.json(result);
+    const result = await addLegalDocument(document, module as LegalModule);
+    return NextResponse.json(result, { status: 201 });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Failed to add document' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to add legal document" }, { status: 500 });
   }
 }

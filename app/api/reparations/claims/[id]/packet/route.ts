@@ -1,27 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateClaimPacketPayload, createClaimPacketRecord } from '@/lib/reparations/claim-packet';
+import { NextRequest, NextResponse } from "next/server";
+import { generateClaimPacket } from "@/lib/reparations/packet-generator";
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
-    const body = await request.json().catch(() => ({}));
-    const format = (body.format ?? 'json') as 'json' | 'pdf' | 'xml';
-    const locale = (body.locale ?? 'en') as 'en' | 'uk';
-    const payload = await generateClaimPacketPayload(id, locale);
-    const record = await createClaimPacketRecord(id, format, null, locale);
-    return NextResponse.json({
-      claimId: id,
-      packetId: record.id,
+    const body = await req.json();
+    const { format = "json", language = "en", jurisdictionIds = [] } = body;
+    const result = await generateClaimPacket(
+      params.id,
       format,
-      locale,
-      payload: format === 'json' ? payload : undefined,
-      message: format === 'pdf' || format === 'xml' ? 'Export to PDF/XML: use payload to generate file' : undefined,
-    });
+      language,
+      Array.isArray(jurisdictionIds) ? jurisdictionIds : []
+    );
+    return NextResponse.json(result);
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Failed to generate packet' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate packet" }, { status: 500 });
   }
 }

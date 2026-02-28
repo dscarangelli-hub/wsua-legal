@@ -1,117 +1,98 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+const MODULES = [
+  { id: "start_claim", label: "Start RD4U claim", href: "#", description: "Create a new reparations claim" },
+  { id: "upload_evidence", label: "Upload evidence", href: "#", description: "Photos, videos, documents, testimonies" },
+  { id: "classify_harm", label: "Classify harm", href: "#", description: "Map evidence to RD4U categories" },
+  { id: "generate_packet", label: "Generate RD4U packet", href: "#", description: "Exportable PDF, JSON, XML (EN/UA)" },
+  { id: "iccu_framing", label: "ICCU framing", href: "#", description: "Legal framing (IHL, HR, aggression)" },
+  { id: "compensation_readiness", label: "Compensation readiness", href: "#", description: "Status, eligibility, payment readiness" },
+  { id: "case_tracking", label: "Case tracking", href: "#", description: "Track claim status" },
+];
 
 export default function ReparationsPage() {
-  const [categories, setCategories] = useState<Array<{ categoryId: string; title: string }>>([]);
-  const [claims, setClaims] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [categories, setCategories] = useState<{ id: string; categoryId: string; title: string }[]>([]);
+  const [claims, setClaims] = useState<{ id: string; title: string; status: string }[]>([]);
 
   useEffect(() => {
-    fetch('/api/reparations/categories')
+    fetch("/api/reparations/categories")
       .then((r) => r.json())
-      .then(setCategories);
-    fetch('/api/reparations/claims')
+      .then((d) => setCategories(d.categories ?? []))
+      .catch(() => {});
+    fetch("/api/reparations/claims")
       .then((r) => r.json())
-      .then(setClaims);
+      .then((d) => setClaims(d.claims ?? []))
+      .catch(() => {});
   }, []);
 
   return (
-    <div className="min-h-full p-6">
-      <header className="charcoal-strip -mx-6 -mt-6 flex items-center gap-4 px-6 py-4">
-        <span className="text-xs uppercase tracking-wider text-gray-400">
-          Workspace
-        </span>
-        <h1 className="text-lg font-semibold text-white">
-          Ukraine Reparations & Claims
-        </h1>
-        <span className="h-px flex-1 border-b-2 border-[var(--wsua-teal)]" />
+    <div className="flex h-screen flex-col">
+      <header className="charcoal-strip flex items-center justify-between border-b border-[color:var(--charcoal-light)] px-8 py-4">
+        <div className="flex flex-col">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Ukraine Reparations & Claims
+          </div>
+          <div className="mt-1 flex items-baseline gap-4">
+            <h1 className="text-lg font-semibold text-slate-50">RD4U & ICCU</h1>
+            <span className="h-0.5 w-10 rounded-full bg-[color:var(--wsua-teal)]" />
+          </div>
+        </div>
       </header>
 
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>RD4U Claim Builder</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-gray-600">
-            <p>Start RD4U claim, upload evidence, classify harm, generate packet.</p>
-            <Button variant="default" asChild>
-              <Link href="/reparations/claims/new">Start RD4U claim</Link>
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Evidence uploader</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-600">
-            Upload photos, videos, documents, testimonies. Chain-of-custody and
-            RD4U category classification.
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>ICCU legal framing</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-600">
-            Map harms to international law (IHL, human rights, aggression).
-            Ukrainian and EU law links. Structured, exportable output.
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Compensation readiness</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-gray-600">
-            Claim status, eligibility metadata, payment readiness indicators.
-          </CardContent>
-        </Card>
-      </div>
+      <main className="workspace-surface flex-1 overflow-auto px-8 py-6">
+        <div className="mx-auto max-w-5xl space-y-6">
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide text-slate-700 mb-3">Module shortcuts</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {MODULES.map((m) => (
+                <Card key={m.id} className="border border-slate-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{m.label}</CardTitle>
+                    <CardDescription className="text-xs">{m.description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-          RD4U categories
-        </h2>
-        <ul className="flex flex-wrap gap-2">
-          {categories.length === 0 && (
-            <li className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-500">
-              No categories yet. Seed or create via API.
-            </li>
-          )}
-          {categories.map((c) => (
-            <li
-              key={c.categoryId}
-              className="rounded border border-[var(--wsua-teal)] px-3 py-1 text-sm text-[var(--wsua-teal)]"
-            >
-              {c.title} ({c.categoryId})
-            </li>
-          ))}
-        </ul>
-      </section>
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide text-slate-700 mb-3">RD4U categories</h2>
+            {categories.length === 0 ? (
+              <p className="text-xs text-slate-500">No categories yet. Create via API or seed.</p>
+            ) : (
+              <ul className="space-y-1 text-xs">
+                {categories.map((c) => (
+                  <li key={c.id} className="flex items-center gap-2">
+                    <span className="font-medium text-slate-800">{c.title}</span>
+                    <span className="text-slate-500">({c.categoryId})</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-          Claims
-        </h2>
-        <ul className="space-y-2">
-          {claims.length === 0 && (
-            <li className="text-sm text-gray-500">No claims yet.</li>
-          )}
-          {claims.map((c) => (
-            <li key={c.id} className="flex items-center gap-2">
-              <span className="font-medium">{c.title}</span>
-              <span className="rounded border border-gray-300 px-2 py-0.5 text-xs">
-                {c.status}
-              </span>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={`/reparations/claims/${c.id}`}>View</Link>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </section>
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide text-slate-700 mb-3">Your claims</h2>
+            {claims.length === 0 ? (
+              <p className="text-xs text-slate-500">No claims yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {claims.map((c) => (
+                  <li key={c.id} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs flex justify-between">
+                    <span>{c.title}</span>
+                    <span className="rounded border border-[color:var(--wsua-teal)] px-2 py-0.5 text-[color:var(--wsua-teal)]">{c.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </main>
     </div>
   );
 }

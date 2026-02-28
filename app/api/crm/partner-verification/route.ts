@@ -1,21 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { ensureCRMEntityForPartnerVerification } from '@/lib/crm-entities';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ensureCRMEntityForPartnerVerification } from "@/lib/crm-entities";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { status, notes } = body;
+
     const verification = await prisma.partnerVerification.create({
       data: {
-        status: status ?? null,
-        notes: notes ?? null,
-      },
+        status,
+        notes
+      }
     });
-    await ensureCRMEntityForPartnerVerification(verification.id);
-    return NextResponse.json(verification);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: 'Failed to create partner verification' }, { status: 500 });
+
+    const crmEntity = await ensureCRMEntityForPartnerVerification(verification);
+
+    return NextResponse.json(
+      { verification, crmEntity },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Failed to create partner verification" },
+      { status: 500 }
+    );
   }
 }
+
