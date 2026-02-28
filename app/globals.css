@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --wsua-teal: #0f4c5c;
+  --wsua-teal-light: #16697a;
+  --charcoal: #1c1c1e;
+  --charcoal-light: #2a2a2d;
+  --wsua-gold: #c9a227;
+}
+
+body {
+  @apply bg-[var(--charcoal)] text-gray-100 antialiased;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.workspace-surface {
+  @apply bg-white text-gray-900;
+}
+
+.charcoal-strip {
+  background: var(--charcoal);
+  border-bottom: 1px solid var(--charcoal-light);
+}
+
+.teal-accent {
+  border-color: var(--wsua-teal);
+  color: var(--wsua-teal-light);
+}
+
+.focus-teal:focus-visible {
+  outline: 2px solid var(--wsua-teal-light);
+  outline-offset: 2px;
+}
