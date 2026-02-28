@@ -1,59 +1,69 @@
-export type UserRoleType =
-  | 'legal_professional'
-  | 'ngo_nonprofit'
-  | 'general_user'
-  | 'ukraine_professional';
+/**
+ * Role Optimization Layer — user roles and homepage module definitions.
+ */
 
-export interface HomeModuleDef {
+export const USER_ROLES = [
+  "legal_professional",
+  "ngo_nonprofit",
+  "general_user",
+  "ukraine_professional",
+] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export interface HomepageModule {
   id: string;
   label: string;
-  href?: string;
   description?: string;
+  href?: string;
+  icon?: string;
+  order: number;
 }
 
-export const HOME_MODULES_BY_ROLE: Record<UserRoleType, HomeModuleDef[]> = {
-  legal_professional: [
-    { id: 'legal-research', label: 'Legal Research Console', href: '/legal' },
-    { id: 'jurisdiction', label: 'Jurisdiction Selector', href: '/legal' },
-    { id: 'cross-jurisdictional', label: 'Cross-Jurisdictional Comparison', href: '/legal' },
-    { id: 'obligations', label: 'Obligations Explorer', href: '/legal' },
-    { id: 'reparations-iccu', label: 'Reparations & ICCU Framing', href: '/reparations' },
-    { id: 'document-vault', label: 'Document Vault', href: '/vaults' },
-  ],
-  ngo_nonprofit: [
-    { id: 'templates', label: 'Templates & Checklists', href: '/templates' },
-    { id: 'scenario', label: 'Scenario Guidance', href: '/legal' },
-    { id: 'grant', label: 'Grant Readiness', href: '/templates' },
-    { id: 'humanitarian', label: 'Humanitarian Access Workflows', href: '/reparations' },
-    { id: 'rd4u-builder', label: 'RD4U Claim Builder', href: '/reparations' },
-    { id: 'evidence', label: 'Evidence Uploader', href: '/reparations' },
-  ],
-  general_user: [
-    { id: 'summaries', label: 'High-Level Summaries' },
-    { id: 'ukraine-overview', label: 'Ukraine Situation Overview' },
-    { id: 'public-templates', label: 'Public Templates', href: '/templates' },
-    { id: 'basic-legal', label: 'Basic Legal Explanations', href: '/legal' },
-  ],
-  ukraine_professional: [
-    { id: 'reparations', label: 'Reparations & Claims Module', href: '/reparations' },
-    { id: 'iccu', label: 'ICCU Legal Framing', href: '/reparations' },
-    { id: 'rd4u-packet', label: 'RD4U Packet Generator', href: '/reparations' },
-    { id: 'ukrainian-law', label: 'Ukrainian Law Explorer', href: '/legal' },
-    { id: 'oblast-city', label: 'Oblast/City Normative Acts', href: '/legal' },
-    { id: 'humanitarian-access', label: 'Humanitarian Access Rules', href: '/reparations' },
-  ],
-};
+const LEGAL_PROFESSIONAL_MODULES: HomepageModule[] = [
+  { id: "legal_research", label: "Legal Research Console", href: "/legal", order: 1 },
+  { id: "jurisdiction_selector", label: "Jurisdiction Selector", href: "/legal", order: 2 },
+  { id: "cross_jurisdictional", label: "Cross-Jurisdictional Comparison", href: "/legal", order: 3 },
+  { id: "obligations_explorer", label: "Obligations Explorer", href: "/api/graph/query/obligations", order: 4 },
+  { id: "reparations_iccu", label: "Reparations & ICCU Framing", href: "/reparations", order: 5 },
+  { id: "document_vault", label: "Document Vault", href: "/vaults", order: 6 },
+];
 
-export const JURISDICTION_DEFAULTS_BY_ROLE: Record<UserRoleType, string[]> = {
-  legal_professional: [],
-  ngo_nonprofit: ['UA', 'EU', 'INTERNATIONAL'],
-  general_user: ['UA'],
-  ukraine_professional: ['UA', 'INTERNATIONAL', 'EU', 'UA_OBLAST', 'UA_CITY'],
-};
+const NGO_NONPROFIT_MODULES: HomepageModule[] = [
+  { id: "templates_checklists", label: "Templates & Checklists", href: "/templates", order: 1 },
+  { id: "scenario_guidance", label: "Scenario Guidance", href: "/legal", order: 2 },
+  { id: "grant_readiness", label: "Grant Readiness", href: "/templates", order: 3 },
+  { id: "humanitarian_access", label: "Humanitarian Access Workflows", href: "/templates", order: 4 },
+  { id: "rd4u_claim_builder", label: "RD4U Claim Builder", href: "/reparations", order: 5 },
+  { id: "evidence_uploader", label: "Evidence Uploader", href: "/reparations", order: 6 },
+];
 
-export const TEMPLATE_PRIORITY_BY_ROLE: Record<UserRoleType, string[]> = {
-  legal_professional: ['legal_analysis', 'citation_framework'],
-  ngo_nonprofit: ['operational', 'mou', 'grant_template'],
-  general_user: ['simplified'],
-  ukraine_professional: ['rd4u', 'humanitarian_access', 'ukrainian_ngo_form'],
-};
+const GENERAL_USER_MODULES: HomepageModule[] = [
+  { id: "summaries", label: "High-Level Summaries", href: "/legal", order: 1 },
+  { id: "ukraine_overview", label: "Ukraine Situation Overview", href: "/legal", order: 2 },
+  { id: "public_templates", label: "Public Templates", href: "/templates", order: 3 },
+  { id: "basic_legal", label: "Basic Legal Explanations", href: "/legal", order: 4 },
+];
+
+const UKRAINE_PROFESSIONAL_MODULES: HomepageModule[] = [
+  { id: "reparations_module", label: "Reparations & Claims Module", href: "/reparations", order: 1 },
+  { id: "iccu_framing", label: "ICCU Legal Framing", href: "/reparations", order: 2 },
+  { id: "rd4u_packet", label: "RD4U Packet Generator", href: "/reparations", order: 3 },
+  { id: "ukrainian_law", label: "Ukrainian Law Explorer", href: "/legal", order: 4 },
+  { id: "oblast_city_acts", label: "Oblast/City Normative Acts", href: "/legal", order: 5 },
+  { id: "humanitarian_rules", label: "Humanitarian Access Rules", href: "/templates", order: 6 },
+];
+
+export function getHomepageModulesForRole(role: UserRole): HomepageModule[] {
+  switch (role) {
+    case "legal_professional":
+      return [...LEGAL_PROFESSIONAL_MODULES].sort((a, b) => a.order - b.order);
+    case "ngo_nonprofit":
+      return [...NGO_NONPROFIT_MODULES].sort((a, b) => a.order - b.order);
+    case "general_user":
+      return [...GENERAL_USER_MODULES].sort((a, b) => a.order - b.order);
+    case "ukraine_professional":
+      return [...UKRAINE_PROFESSIONAL_MODULES].sort((a, b) => a.order - b.order);
+    default:
+      return [...GENERAL_USER_MODULES].sort((a, b) => a.order - b.order);
+  }
+}

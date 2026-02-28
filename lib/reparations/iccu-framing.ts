@@ -1,63 +1,42 @@
-import { prisma } from '@/lib/prisma';
-
-export interface ICCUFramingInput {
-  claimId: string;
-  violations?: string[];
-  norms?: string[];
-  ukrainianLawLinks?: string[];
-  euLawLinks?: string[];
-}
+import { prisma } from "@/lib/prisma";
 
 export interface ICCUFramingOutput {
-  claimId: string;
-  internationalLawViolations: string[];
-  norms: string[];
-  ukrainianLawLinks: string[];
-  euLawLinks: string[];
-  structuredFraming: Record<string, unknown>;
+  violations: Array<{ norm: string; description: string; source?: string }>;
+  harmToNorms: Array<{ harm: string; normIds: string[] }>;
+  legalFraming: { summary: string; references: string[] };
+  ukrainianLawRefs: string[];
+  euLawRefs: string[];
 }
 
-export async function generateICCULegalFraming(claimId: string): Promise<ICCUFramingOutput> {
+export async function generateICCULegalFraming(claimId: string, jurisdictionIds: string[]): Promise<ICCUFramingOutput> {
   const claim = await prisma.claim.findUnique({
     where: { id: claimId },
-    include: { evidence: true },
+    include: { rd4uCategory: true },
   });
-  if (!claim) throw new Error('Claim not found');
-  const existing = (claim.iccuFramingJson as Record<string, unknown> | null) ?? {};
-  const violations = (existing.internationalLawViolations as string[]) ?? [];
-  const norms = (existing.norms as string[]) ?? ['IHL', 'human rights', 'aggression'];
-  const ukrainianLawLinks = (existing.ukrainianLawLinks as string[]) ?? [];
-  const euLawLinks = (existing.euLawLinks as string[]) ?? [];
-  return {
-    claimId,
-    internationalLawViolations: violations,
-    norms,
-    ukrainianLawLinks,
-    euLawLinks,
-    structuredFraming: {
-      claimId,
-      harmClassification: claim.harmClassification,
-      narrative: claim.narrative,
-      internationalLawViolations: violations,
-      norms,
-      ukrainianLawLinks,
-      euLawLinks,
-    },
-  };
-}
+  if (!claim) throw new Error("Claim not found");
 
-export async function saveICCUFraming(claimId: string, framing: ICCUFramingOutput) {
-  await prisma.claim.update({
-    where: { id: claimId },
-    data: {
-      iccuFramingJson: {
-        internationalLawViolations: framing.internationalLawViolations,
-        norms: framing.norms,
-        ukrainianLawLinks: framing.ukrainianLawLinks,
-        euLawLinks: framing.euLawLinks,
-        structuredFraming: framing.structuredFraming,
-      },
-    },
+  const violations: ICCUFramingOutput["violations"] = [
+    { norm: "IHL – Geneva Conventions", description: "Relevant to harm classification", source: "international" },
+    { norm: "Human rights – ECHR", description: "Applicable where jurisdiction applies", source: "international" },
+    { norm: "Aggression – UN GA Resolution", description: "Context for state responsibility", source: "international" },
+  ];
+  const harmToNorms: ICCUFramingOutput["harmToNorms"] = [
+    { harm: claim.rd4uCategory?.title ?? "Claim harm", normIds: ["ihl", "echr"] },
+  ];
+
+  const docRefs = await prisma.legalDocument.findMany({
+    where: { jurisdictionId: { in: jurisdictionIds } },
+    take: 10,
+    select: { id: true, title: true, jurisdiction: { select: { code: true } } },
   });
-  return framing;
+  const ukrainianLawRefs = docRefs.filter((d) => ["UA", "UA_OBLAST", "UA_CITY"].includes(d.jurisdiction?.code ?? "")).map((d) => d.title);
+  const euLawRefs = docRefs.filter((d) => d.jurisdiction?.code === "EU").map((d) => d.title);
+
+  return {
+    violations,
+    harmToNorms,
+    legalFraming: { summary: "Structured legal framing for RD4U/ICCU. Not legal advice.", references: docRefs.map((d) => d.title) },
+    ukrainianLawRefs,
+    euLawRefs,
+  };
 }

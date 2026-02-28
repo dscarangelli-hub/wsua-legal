@@ -1,116 +1,196 @@
-import { prisma } from './prisma';
+import {
+  Activity,
+  Case as CaseModel,
+  CRMEntity,
+  Document,
+  Organization,
+  PartnerVerification,
+  Person,
+  Shipment
+} from "@prisma/client";
+import { prisma } from "./prisma";
 
-const ENTITY_TYPES = {
-  PERSON: 'PERSON',
-  ORG: 'ORG',
-  ACTIVITY: 'ACTIVITY',
-  DOCUMENT: 'DOCUMENT',
-  CASE: 'CASE',
-  SHIPMENT: 'SHIPMENT',
-  VERIFICATION: 'VERIFICATION',
-} as const;
+export type CRMEntityType =
+  | "PERSON"
+  | "ORG"
+  | "ACTIVITY"
+  | "DOCUMENT"
+  | "CASE"
+  | "SHIPMENT"
+  | "VERIFICATION";
 
-export async function ensureCRMEntityForPerson(personId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.PERSON, refId: personId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForPerson(
+  person: Person
+): Promise<CRMEntity> {
+  if (person.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: person.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.PERSON, refId: personId },
+    data: {
+      type: "PERSON",
+      refId: person.id,
+      person: { connect: { id: person.id } }
+    }
   });
+
   await prisma.person.update({
-    where: { id: personId },
-    data: { crmEntityId: entity.id },
+    where: { id: person.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
 
-export async function ensureCRMEntityForOrganization(orgId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.ORG, refId: orgId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForOrganization(
+  organization: Organization
+): Promise<CRMEntity> {
+  if (organization.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: organization.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.ORG, refId: orgId },
+    data: {
+      type: "ORG",
+      refId: organization.id,
+      organization: { connect: { id: organization.id } }
+    }
   });
+
   await prisma.organization.update({
-    where: { id: orgId },
-    data: { crmEntityId: entity.id },
+    where: { id: organization.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
 
-export async function ensureCRMEntityForActivity(activityId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.ACTIVITY, refId: activityId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForActivity(
+  activity: Activity
+): Promise<CRMEntity> {
+  if (activity.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: activity.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.ACTIVITY, refId: activityId },
+    data: {
+      type: "ACTIVITY",
+      refId: activity.id,
+      activity: { connect: { id: activity.id } }
+    }
   });
+
   await prisma.activity.update({
-    where: { id: activityId },
-    data: { crmEntityId: entity.id },
+    where: { id: activity.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
 
-export async function ensureCRMEntityForDocument(docId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.DOCUMENT, refId: docId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForDocument(
+  document: Document
+): Promise<CRMEntity> {
+  if (document.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: document.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.DOCUMENT, refId: docId },
+    data: {
+      type: "DOCUMENT",
+      refId: document.id,
+      document: { connect: { id: document.id } }
+    }
   });
+
   await prisma.document.update({
-    where: { id: docId },
-    data: { crmEntityId: entity.id },
+    where: { id: document.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
 
-export async function ensureCRMEntityForCase(caseId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.CASE, refId: caseId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForCase(
+  caseModel: CaseModel
+): Promise<CRMEntity> {
+  if (caseModel.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: caseModel.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.CASE, refId: caseId },
+    data: {
+      type: "CASE",
+      refId: caseModel.id,
+      case: { connect: { id: caseModel.id } }
+    }
   });
+
   await prisma.case.update({
-    where: { id: caseId },
-    data: { crmEntityId: entity.id },
+    where: { id: caseModel.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
 
-export async function ensureCRMEntityForShipment(shipmentId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.SHIPMENT, refId: shipmentId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForShipment(
+  shipment: Shipment
+): Promise<CRMEntity> {
+  if (shipment.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: shipment.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.SHIPMENT, refId: shipmentId },
+    data: {
+      type: "SHIPMENT",
+      refId: shipment.id,
+      shipment: { connect: { id: shipment.id } }
+    }
   });
+
   await prisma.shipment.update({
-    where: { id: shipmentId },
-    data: { crmEntityId: entity.id },
+    where: { id: shipment.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
 
-export async function ensureCRMEntityForPartnerVerification(verificationId: string) {
-  const existing = await prisma.cRMEntity.findFirst({
-    where: { type: ENTITY_TYPES.VERIFICATION, refId: verificationId },
-  });
-  if (existing) return existing.id;
+export async function ensureCRMEntityForPartnerVerification(
+  verification: PartnerVerification
+): Promise<CRMEntity> {
+  if (verification.crmEntityId) {
+    return prisma.cRMEntity.findUniqueOrThrow({
+      where: { id: verification.crmEntityId }
+    });
+  }
+
   const entity = await prisma.cRMEntity.create({
-    data: { type: ENTITY_TYPES.VERIFICATION, refId: verificationId },
+    data: {
+      type: "VERIFICATION",
+      refId: verification.id,
+      partnerVerification: { connect: { id: verification.id } }
+    }
   });
+
   await prisma.partnerVerification.update({
-    where: { id: verificationId },
-    data: { crmEntityId: entity.id },
+    where: { id: verification.id },
+    data: { crmEntityId: entity.id }
   });
-  return entity.id;
+
+  return entity;
 }
+

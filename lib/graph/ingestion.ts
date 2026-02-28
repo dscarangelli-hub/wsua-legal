@@ -1,170 +1,157 @@
-import { prisma } from '@/lib/prisma';
+/**
+ * Graph Integration Layer — APIs for legal modules to write into the graph.
+ * addLegalDocument, addObligation, addRelationship, updateDocumentVersion.
+ */
 
-export type LegalModule = 'INTERNATIONAL' | 'EU' | 'UKRAINE' | 'US';
+import { prisma } from "@/lib/prisma";
+import { recordAudit } from "@/lib/legal/versioning";
+import type { LegalDocumentInput, ObligationInput, AddRelationshipInput, DocumentVersionUpdate } from "./types";
+import type { LegalModule } from "@/lib/legal/types";
+import { triggerDocumentUpdateChain } from "./update-engine";
 
-export interface AddLegalDocumentInput {
-  title: string;
-  documentType: string;
-  jurisdictionId?: string;
-  module: LegalModule;
-  rawContent?: string;
-  normalizedContent?: string;
-  legalLevel?: string;
-  authority?: string;
-  dateAdopted?: Date;
-  dateEffective?: Date;
-  originalLanguage?: string;
-  sourceUrl?: string;
-  externalId?: string;
-}
+const DOCUMENT_TYPE = "LEGAL_DOCUMENT";
+const GRAPH_NODE = "GRAPH_NODE";
+const OBLIGATION = "OBLIGATION";
+const TEMPLATE = "TEMPLATE";
+const TEMPLATE_SECTION = "TEMPLATE_SECTION";
+const OVERLAY = "OVERLAY";
 
 export async function addLegalDocument(
-  document: AddLegalDocumentInput,
-  _module: LegalModule
-) {
+  input: LegalDocumentInput,
+  module: LegalModule
+): Promise<{ documentId: string; graphNodeId?: string }> {
   const doc = await prisma.legalDocument.create({
     data: {
-      title: document.title,
-      documentType: document.documentType,
-      jurisdictionId: document.jurisdictionId ?? null,
-      module: document.module,
-      rawContent: document.rawContent ?? null,
-      normalizedContent: document.normalizedContent ?? null,
-      legalLevel: document.legalLevel ?? null,
-      authority: document.authority ?? null,
-      dateAdopted: document.dateAdopted ?? null,
-      dateEffective: document.dateEffective ?? null,
-      originalLanguage: document.originalLanguage ?? null,
-      sourceUrl: document.sourceUrl ?? null,
-      externalId: document.externalId ?? null,
+      title: input.title,
+      documentType: input.documentType,
+      jurisdictionId: input.jurisdictionId,
+      legalLevel: input.legalLevel ?? null,
+      authority: input.authority ?? null,
+      module,
+      sourceUrl: input.sourceUrl ?? null,
+      dateAdopted: input.dateAdopted ? new Date(input.dateAdopted) : null,
+      effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : null,
+      effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+      originalLanguage: input.originalLanguage ?? null,
+      rawContent: input.originalText ?? null,
+      normalizedContent: input.normalizedText ?? null,
+      metadata: input.metadata ?? undefined,
+      externalId: input.externalId ?? null,
+      version: 1,
     },
   });
-  const node = await prisma.legalGraphNode.create({
+
+  const jurisdiction = await prisma.jurisdiction.findUnique({
+    where: { id: doc.jurisdictionId },
+    select: { id: true },
+  });
+  const graphNode = await prisma.legalGraphNode.create({
     data: {
       documentId: doc.id,
-      jurisdictionId: doc.jurisdictionId,
-      label: doc.title,
-      nodeType: 'DOCUMENT',
+      label: doc.title.slice(0, 200),
+      nodeType: doc.documentType,
+      jurisdictionId: jurisdiction?.id ?? null,
+      metadata: {},
     },
   });
-  await prisma.updateAudit.create({
-    data: {
-      module: document.module,
-      action: 'CREATE_DOCUMENT',
-      resourceId: doc.id,
-      summary: `Created document ${doc.title}`,
-    },
+
+  await recordAudit({
+    module,
+    action: "ingest",
+    resourceId: doc.id,
+    summary: `Added legal document: ${doc.title}`,
+    metadata: { documentType: doc.documentType },
   });
-  return { document: doc, node };
+
+  return { documentId: doc.id, graphNodeId: graphNode.id };
 }
 
-export interface AddObligationInput {
-  documentId: string;
-  text: string;
-  scope?: string;
-  jurisdictionId?: string;
-  legalBasis?: string;
-}
-
-export async function addObligation(input: AddObligationInput) {
-  return prisma.legalObligation.create({
+export async function addObligation(input: ObligationInput): Promise<{ obligationId: string }> {
+  const ob = await prisma.legalObligation.create({
     data: {
       documentId: input.documentId,
       text: input.text,
       scope: input.scope ?? null,
       jurisdictionId: input.jurisdictionId ?? null,
       legalBasis: input.legalBasis ?? null,
+      version: 1,
     },
   });
+  return { obligationId: ob.id };
 }
 
-const EDGE_TYPES = [
-  'implements',
-  'transposes',
-  'amends',
-  'overrides',
-  'interprets',
-  'cites',
-  'supersedes',
-  'requires',
-  'informs',
-  'updates',
-] as const;
-
 export async function addRelationship(
-  input: {
-    sourceType: string;
-    sourceId: string;
-    targetType: string;
-    targetId: string;
-    relationshipType: string;
-    metadata?: Record<string, unknown>;
-  },
-  _metadata?: Record<string, unknown>
-) {
-  if (!EDGE_TYPES.includes(input.relationshipType as (typeof EDGE_TYPES)[number])) {
-    throw new Error('Invalid edge type');
-  }
-  return prisma.graphEdge.create({
+  input: AddRelationshipInput,
+  metadata?: { module?: LegalModule }
+): Promise<{ edgeId: string }> {
+  const edge = await prisma.graphEdge.create({
     data: {
       fromType: input.sourceType,
       fromId: input.sourceId,
       toType: input.targetType,
       toId: input.targetId,
       edgeType: input.relationshipType,
-      metadata: (input.metadata ?? _metadata) as object | null,
+      metadata: input.metadata ?? undefined,
+      version: 1,
     },
   });
+  if (metadata?.module) {
+    await recordAudit({
+      module: metadata.module,
+      action: "graph_update",
+      resourceId: edge.id,
+      summary: `Edge: ${input.sourceType}:${input.sourceId} --[${input.relationshipType}]--> ${input.targetType}:${input.targetId}`,
+    });
+  }
+  return { edgeId: edge.id };
 }
 
 export async function updateDocumentVersion(
-  documentId: string,
-  input: {
-    normalizedText?: string;
-    contentDelta?: string;
-    changeSummary?: string;
-  },
+  input: DocumentVersionUpdate,
   module: LegalModule
-) {
+): Promise<{ newVersion: number }> {
   const doc = await prisma.legalDocument.findUnique({
-    where: { id: documentId },
-    include: { obligations: true },
+    where: { id: input.documentId },
+    select: { id: true, version: true },
   });
-  if (!doc) throw new Error('Document not found');
+  if (!doc) throw new Error("Document not found");
+
   const newVersion = doc.version + 1;
   await prisma.legalDocumentVersion.create({
     data: {
-      documentId,
+      documentId: doc.id,
       version: newVersion,
       contentDelta: input.contentDelta ?? null,
       changeSummary: input.changeSummary ?? null,
     },
   });
   await prisma.legalDocument.update({
-    where: { id: documentId },
+    where: { id: doc.id },
     data: {
       version: newVersion,
-      normalizedContent: input.normalizedText ?? doc.normalizedContent,
+      normalizedContent: input.normalizedText ?? undefined,
+      updatedAt: new Date(),
     },
   });
+
   await prisma.graphDelta.create({
     data: {
-      entityType: 'LegalDocument',
-      entityId: documentId,
+      entityType: "LEGAL_DOCUMENT",
+      entityId: doc.id,
       oldVersion: doc.version,
       newVersion,
-      diff: input as object,
+      diff: input.contentDelta ?? null,
     },
   });
-  const { triggerDocumentUpdateChain } = await import('./update-engine');
-  await triggerDocumentUpdateChain(documentId, newVersion);
-  await prisma.updateAudit.create({
-    data: {
-      module,
-      action: 'UPDATE_VERSION',
-      resourceId: documentId,
-      summary: input.changeSummary ?? `Version ${newVersion}`,
-    },
+
+  await recordAudit({
+    module,
+    action: "graph_update",
+    resourceId: doc.id,
+    summary: `Document version ${doc.version} → ${newVersion}`,
   });
-  return { version: newVersion };
+
+  await triggerDocumentUpdateChain(doc.id, newVersion);
+
+  return { newVersion };
 }
